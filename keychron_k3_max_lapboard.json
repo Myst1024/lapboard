@@ -1,0 +1,33 @@
+{
+    "fileFormatVersion": "1",
+    "parameterSets": {
+        "New set 1": {
+            "$fn": "48",
+            "board_depth": "230",
+            "board_thickness": "20",
+            "board_width": "600",
+            "corner_radius": "5",
+            "hex_nut_across_flats": "11.1",
+            "hex_nut_pocket_depth": "5.7999999999999998",
+            "hex_nut_press_fit_interference": "0.10000000000000001",
+            "keyboard_clearance": "1",
+            "keyboard_depth": "116.7",
+            "keyboard_front_recess_depth": "7",
+            "keyboard_rear_recess_depth": "13",
+            "keyboard_width": "306.69999999999999",
+            "left_margin": "10",
+            "mouse_gap": "15",
+            "part_count": "3",
+            "part_to_render": "1",
+            "recess_corner_radius": "5",
+            "socket_access_depth": "12",
+            "socket_access_diameter": "17",
+            "threaded_rod_diameter": "6.3499999999999996",
+            "threaded_rod_diameter_clearance": "0.80000000000000004",
+            "threaded_rod_edge_clearance": "6.5",
+            "top_margin": "15",
+            "zigzag_amplitude": "3",
+            "zigzag_step": "6"
+        }
+    }
+}
