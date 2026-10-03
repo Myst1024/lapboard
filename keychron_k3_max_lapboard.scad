@@ -17,20 +17,18 @@ board_segment_count = 3;
 // determines how coarse the zigzags between cut parts are
 vertical_zigzag_count = 5;
 
-/* [Board] */
+/* [Lap Board] */
 
+// 'board width' ÷ 'board segment count' must be smaller than your print bed
 board_width = 600;
+// Must be smaller than your print bed
 board_height = 230;
 board_thickness = 20;
 corner_radius = 5;
 // Small fillet around entire top of the board
 top_fillet_radius = 3;
-// Space between left side of keyboard recess and board edge
-left_margin = 10;
-// Space between keyboard and top of board
-top_margin = 15;
 
-/* [Keyboard Recess] */
+/* [Keyboard] */
 
 // Width of the keyboard + some clearance
 keyboard_recess_width = 308;
@@ -41,10 +39,24 @@ keyboard_front_recess_depth = 8;
 // Depth of the rear of the keyboard chassis
 keyboard_rear_recess_depth = 13;
 keyboard_recess_corner_radius = 5;
+// Space between left side of keyboard recess and board edge
+keyboard_left_margin = 10;
+// Space between keyboard and top of board
+keyboard_top_margin = 15;
+
+/* [Mousepad] */
+
+mousepad_width = 241;
+mousepad_height = 201;
+mousepad_corner_radius = 6;
+// If you don't want a mousepad section just set this to 0
+mousepad_recess_depth = 1;
+mousepad_right_margin = 10;
+mousepad_top_margin = 15;
 
 /* [Hardware] */
 
-// Fits 1/4 in threaded rods by default
+// Fits 1//4 in threaded rods by default
 threaded_rod_hole_diameter = 7.15;
 // Measured flat to flat.
 hex_nut_recess_width = 11.5;
@@ -62,8 +74,10 @@ plug_size_reduction = 0.10; // [0:0.10:1.00]
 
 vertical_zigzag_amplitude = board_thickness / (2 * vertical_zigzag_count);
 
-keyboard_recess_x = left_margin;
-keyboard_recess_y = board_height - keyboard_recess_height - top_margin;
+keyboard_recess_x = keyboard_left_margin;
+keyboard_recess_y = board_height - keyboard_recess_height - keyboard_top_margin;
+mousepad_recess_x = board_width - mousepad_width - mousepad_right_margin;
+mousepad_recess_y = board_height - mousepad_height - mousepad_top_margin;
 threaded_rod_radius = threaded_rod_hole_diameter / 2;
 bottom_threaded_rod_y = 10.075;
 top_threaded_rod_y = board_height - bottom_threaded_rod_y;
@@ -120,6 +134,20 @@ module keyboard_recess() {
                             board_thickness + 0.1
                         ]);
         }
+}
+
+module mousepad_recess() {
+    translate([
+        mousepad_recess_x,
+        mousepad_recess_y,
+        board_thickness - mousepad_recess_depth
+    ])
+        linear_extrude(height = mousepad_recess_depth + 0.1)
+            rounded_rectangle(
+                mousepad_width,
+                mousepad_height,
+                mousepad_corner_radius
+            );
 }
 
 module threaded_rod_channels() {
@@ -194,6 +222,7 @@ module lapboard() {
     difference() {
         board_shape();
         keyboard_recess();
+        mousepad_recess();
         threaded_rod_channels();
         left_nut_recesses();
         right_socket_counterbores();
