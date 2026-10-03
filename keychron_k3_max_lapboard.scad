@@ -10,11 +10,11 @@ $fn = 48;
 /* [Print Sections] */
 
 render_target = "board"; // [board:Board, caps:Caps]
-// Use 0 to render every section, or a positive section number to render one at a time for printing.
+// Use 0 to render every section, or a positive section number to render one pre-cut section at a time for printing.
 board_segment_to_render = 0;
 // Number of segments to cut the board into
 board_segment_count = 3;
-// determines how coarse/fine the cut profiles are
+// determines how coarse the zigzags between cut parts are
 vertical_zigzag_count = 5;
 
 /* [Board] */
@@ -97,6 +97,12 @@ module board_shape() {
 module keyboard_recess() {
     // The wedge floor is one continuous plane, shallow at the front and
     // deeper at the rear to match the keyboard's angled underside.
+    slope_angle = atan(
+        (keyboard_front_recess_depth - keyboard_rear_recess_depth)
+        / keyboard_recess_height
+    );
+    slope_margin = board_thickness + 0.1;
+
     translate([keyboard_recess_x, keyboard_recess_y])
         intersection() {
             linear_extrude(height = board_thickness + 0.1)
@@ -105,24 +111,14 @@ module keyboard_recess() {
                     keyboard_recess_height,
                     keyboard_recess_corner_radius
                 );
-            polyhedron(
-                points = [
-                    [0, 0, board_thickness - keyboard_front_recess_depth],
-                    [keyboard_recess_width, 0, board_thickness - keyboard_front_recess_depth],
-                    [keyboard_recess_width, keyboard_recess_height,
-                     board_thickness - keyboard_rear_recess_depth],
-                    [0, keyboard_recess_height,
-                     board_thickness - keyboard_rear_recess_depth],
-                    [0, 0, board_thickness + 0.1],
-                    [keyboard_recess_width, 0, board_thickness + 0.1],
-                    [keyboard_recess_width, keyboard_recess_height, board_thickness + 0.1],
-                    [0, keyboard_recess_height, board_thickness + 0.1]
-                ],
-                faces = [
-                    [0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4],
-                    [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]
-                ]
-            );
+            translate([0, 0, board_thickness - keyboard_front_recess_depth])
+                rotate([slope_angle, 0, 0])
+                    translate([0, -slope_margin, 0])
+                        cube([
+                            keyboard_recess_width,
+                            keyboard_recess_height / cos(slope_angle) + 2 * slope_margin,
+                            board_thickness + 0.1
+                        ]);
         }
 }
 
@@ -162,7 +158,7 @@ module right_socket_counterbores() {
 
 module left_hex_cap() {
     cap_thickness = 2;
-    cap_width = hex_nut_recess_width - plug_size_reduction;
+    cap_width = left_hex_cap_width();
     pull_hole_diameter = 2;
     pull_hole_x = cap_width / sqrt(3) - pull_hole_diameter / 2;
 
@@ -176,7 +172,7 @@ module left_hex_cap() {
 module right_round_cap() {
     cap_thickness = 5;
     cap_face_thickness = 1;
-    cap_diameter = socket_access_diameter - plug_size_reduction;
+    cap_diameter = right_round_cap_diameter();
     pull_hole_diameter = 2;
     pull_hole_offset = cap_diameter / 2 - pull_hole_diameter;
 
@@ -205,6 +201,8 @@ module lapboard() {
 }
 
 function section_width() = board_width / board_segment_count;
+function left_hex_cap_width() = hex_nut_recess_width - plug_size_reduction;
+function right_round_cap_diameter() = socket_access_diameter - plug_size_reduction;
 function vertical_zigzag_x(seam_x, index) = seam_x
     + (index % 2 == 0 ? -vertical_zigzag_amplitude : vertical_zigzag_amplitude);
 function vertical_zigzag_points(seam_x, z_min, z_max) = concat(
@@ -261,19 +259,34 @@ module render_board() {
              || floor(board_segment_to_render) != board_segment_to_render)
         assert(false, "board_segment_to_render must be 0 or a valid segment number");
     else if (board_segment_to_render == 0)
-        for (part_index = [0 : board_segment_count - 1])
-            render_section(part_index);
+        translate([-board_width / 2, -board_height / 2, 0])
+            for (part_index = [0 : board_segment_count - 1])
+                render_section(part_index);
     else
-        render_section(board_segment_to_render - 1);
+        translate([
+            -section_width() * (board_segment_to_render - 0.5),
+            -board_height / 2,
+            0
+        ])
+            render_section(board_segment_to_render - 1);
+}
+
+module render_caps() {
+    hex_cap_radius = left_hex_cap_width() / sqrt(3);
+    round_cap_radius = right_round_cap_diameter() / 2;
+    cap_pair_center_x = (socket_access_diameter + round_cap_radius - hex_cap_radius) / 2;
+
+    translate([-cap_pair_center_x, 0, 0]) {
+        left_hex_cap();
+        translate([socket_access_diameter, 0, 0])
+            right_round_cap();
+    }
 }
 
 if (render_target == "board")
     render_board();
-else if (render_target == "caps") {
-    left_hex_cap();
-    translate([socket_access_diameter, 0, 0])
-        right_round_cap();
-}
+else if (render_target == "caps")
+    render_caps();
 else
     assert(false, "render_target must be board or caps");
 
