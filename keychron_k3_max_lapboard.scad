@@ -9,7 +9,7 @@ $fn = 48;
 
 /* [Print Sections] */
 
-render_target = "board"; // [board:Board, caps:Caps]
+render_target = "board"; // [board:Board, caps:Caps, retainer:Keyboard retainer]
 // Use 0 to render every section, or a positive section number to render one pre-cut section at a time for printing.
 board_segment_to_render = 0;
 // Number of segments to cut the board into
@@ -43,6 +43,26 @@ keyboard_recess_corner_radius = 5;
 keyboard_left_margin = 10;
 // Space between keyboard and top of board
 keyboard_top_margin = 15;
+
+// Enable a sliding retention tab at the rear center of the keyboard recess
+keyboard_retainer_enabled = true;
+
+/* [Hidden] */
+
+// Width of the centered slide channel
+keyboard_retainer_channel_width = 10;
+// Depth of the slide channel and slider base
+keyboard_retainer_channel_depth = 1;
+// Width of the chamfer around the channel opening
+keyboard_retainer_channel_chamfer = 0.5;
+// Clearance on each side of the slider base
+keyboard_retainer_slider_clearance = 0.2;
+// Length of the slider base within the channel
+keyboard_retainer_slider_length = 9;
+// Amount that the slider nose reaches into the keyboard opening
+keyboard_retainer_tab_depth = 2;
+// Height of the finger knob above the slider
+keyboard_retainer_knob_height = 1;
 
 /* [Mousepad] */
 
@@ -150,6 +170,108 @@ module mousepad_recess() {
             );
 }
 
+module tapered_prism(
+    center_x,
+    start_y,
+    length,
+    lower_width,
+    upper_width,
+    lower_z,
+    upper_z
+) {
+    translate([center_x, start_y + length / 2, lower_z])
+        linear_extrude(
+            height = upper_z - lower_z,
+            scale = [upper_width / lower_width, 1]
+        )
+            square([lower_width, length], center = true);
+}
+
+// A narrower upper opening captures the wider lower foot of the slider.
+// It ends before the board's perimeter fillet, leaving a solid travel stop.
+module keyboard_retainer_channel() {
+    center_x = keyboard_recess_x + keyboard_recess_width / 2;
+    recess_rear_y = keyboard_recess_y + keyboard_recess_height;
+    channel_overlap = 0.2;
+
+    if (keyboard_retainer_enabled)
+        tapered_prism(
+            center_x,
+            recess_rear_y - channel_overlap,
+            keyboard_top_margin - top_fillet_radius + channel_overlap,
+            keyboard_retainer_channel_width
+            + 2 * keyboard_retainer_channel_chamfer,
+            keyboard_retainer_channel_width,
+            board_thickness - keyboard_retainer_channel_depth - 0.01,
+            board_thickness + 0.1
+        );
+}
+
+// Model the slider in its forward, keyboard-retaining position.
+module keyboard_retainer() {
+    center_x = keyboard_recess_x + keyboard_recess_width / 2;
+    recess_rear_y = keyboard_recess_y + keyboard_recess_height;
+    channel_start_y = recess_rear_y;
+    nose_start_y = recess_rear_y - keyboard_retainer_tab_depth;
+    nose_anchor_length = 0.2;
+    slider_top_width = keyboard_retainer_channel_width
+        - 2 * keyboard_retainer_slider_clearance;
+    slider_bottom_width = keyboard_retainer_channel_width
+        + 2 * keyboard_retainer_channel_chamfer
+        - 2 * keyboard_retainer_slider_clearance;
+
+    if (keyboard_retainer_enabled)
+        union() {
+            tapered_prism(
+                center_x,
+                channel_start_y,
+                keyboard_retainer_slider_length,
+                slider_bottom_width,
+                slider_top_width,
+                board_thickness - keyboard_retainer_channel_depth,
+                board_thickness + 0.01
+            );
+            // The leading wedge continues the dovetail while tapering the
+            // keyboard-facing edge through the two-millimeter nose.
+            hull() {
+                translate([
+                    center_x - slider_bottom_width / 2,
+                    nose_start_y,
+                    board_thickness - keyboard_retainer_channel_depth
+                ])
+                    cube([slider_bottom_width, nose_anchor_length, 0.1]);
+                tapered_prism(
+                    center_x,
+                    recess_rear_y - nose_anchor_length,
+                    nose_anchor_length,
+                    slider_bottom_width,
+                    slider_top_width,
+                    board_thickness - keyboard_retainer_channel_depth,
+                    board_thickness + 0.01
+                );
+            }
+            translate([
+                center_x,
+                channel_start_y + keyboard_retainer_slider_length - 3,
+                board_thickness
+            ])
+                cylinder(h = keyboard_retainer_knob_height, d = 4);
+        }
+}
+
+// Render the slider flat with its knob pointing upward.
+module render_keyboard_retainer() {
+    center_x = keyboard_recess_x + keyboard_recess_width / 2;
+    recess_rear_y = keyboard_recess_y + keyboard_recess_height;
+
+    translate([
+        -center_x,
+        -recess_rear_y + keyboard_retainer_tab_depth,
+        -board_thickness + keyboard_retainer_channel_depth
+    ])
+        keyboard_retainer();
+}
+
 module threaded_rod_channels() {
     for (channel = [
         [bottom_threaded_rod_y, bottom_threaded_rod_z],
@@ -223,6 +345,7 @@ module lapboard() {
         board_shape();
         keyboard_recess();
         mousepad_recess();
+        keyboard_retainer_channel();
         threaded_rod_channels();
         left_nut_recesses();
         right_socket_counterbores();
@@ -316,6 +439,8 @@ if (render_target == "board")
     render_board();
 else if (render_target == "caps")
     render_caps();
+else if (render_target == "retainer")
+    render_keyboard_retainer();
 else
-    assert(false, "render_target must be board or caps");
+    assert(false, "render_target must be board, caps, or retainer");
 
