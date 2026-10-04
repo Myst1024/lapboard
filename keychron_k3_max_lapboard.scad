@@ -37,26 +37,26 @@ keyboard_recess_height = 118;
 // Depth of the front of the keyboard chassis
 keyboard_front_recess_depth = 8;
 // Depth of the rear of the keyboard chassis
-keyboard_rear_recess_depth = 13;
+keyboard_rear_recess_depth = 15;
 keyboard_recess_corner_radius = 5;
 // Space between left side of keyboard recess and board edge
 keyboard_left_margin = 10;
 // Space between keyboard and top of board
 keyboard_top_margin = 15;
 
-// Enable a sliding retention tab at the rear center of the keyboard recess
+// Add slots at the top and bottom of the keyboard for retention clips
 keyboard_retainer_enabled = true;
 
 /* [Hidden] */
 
 // Width of the centered slide channel
-keyboard_retainer_channel_width = 10;
+keyboard_retainer_channel_width = 20;
 // Depth of the slide channel and slider base
-keyboard_retainer_channel_depth = 1;
+keyboard_retainer_channel_depth = 2;
 // Width of the chamfer around the channel opening
 keyboard_retainer_channel_chamfer = 0.5;
 // Clearance on each side of the slider base
-keyboard_retainer_slider_clearance = 0.2;
+keyboard_retainer_slider_clearance = 0.025;
 // Length of the slider base within the channel
 keyboard_retainer_slider_length = 9;
 // Amount that the slider nose reaches into the keyboard opening
@@ -187,24 +187,39 @@ module tapered_prism(
             square([lower_width, length], center = true);
 }
 
-// A narrower upper opening captures the wider lower foot of the slider.
-// It ends before the board's perimeter fillet, leaving a solid travel stop.
+// Narrower upper openings capture the wider lower foot of the slider.
+// They end before the board's perimeter fillet, leaving solid travel stops.
 module keyboard_retainer_channel() {
     center_x = keyboard_recess_x + keyboard_recess_width / 2;
+    recess_center_y = keyboard_recess_y + keyboard_recess_height / 2;
     recess_rear_y = keyboard_recess_y + keyboard_recess_height;
     channel_overlap = 0.2;
 
     if (keyboard_retainer_enabled)
-        tapered_prism(
-            center_x,
-            recess_rear_y - channel_overlap,
-            keyboard_top_margin - top_fillet_radius + channel_overlap,
-            keyboard_retainer_channel_width
-            + 2 * keyboard_retainer_channel_chamfer,
-            keyboard_retainer_channel_width,
-            board_thickness - keyboard_retainer_channel_depth - 0.01,
-            board_thickness + 0.1
-        );
+        union() {
+            tapered_prism(
+                center_x,
+                recess_rear_y - channel_overlap,
+                keyboard_top_margin - top_fillet_radius + channel_overlap,
+                keyboard_retainer_channel_width
+                + 2 * keyboard_retainer_channel_chamfer,
+                keyboard_retainer_channel_width,
+                board_thickness - keyboard_retainer_channel_depth - 0.01,
+                board_thickness + 0.1
+            );
+            translate([0, 2 * recess_center_y, 0])
+                mirror([0, 1, 0])
+                    tapered_prism(
+                        center_x,
+                        recess_rear_y - channel_overlap,
+                        keyboard_top_margin - top_fillet_radius + channel_overlap,
+                        keyboard_retainer_channel_width
+                        + 2 * keyboard_retainer_channel_chamfer,
+                        keyboard_retainer_channel_width,
+                        board_thickness - keyboard_retainer_channel_depth - 0.01,
+                        board_thickness + 0.1
+                    );
+        }
 }
 
 // Model the slider in its forward, keyboard-retaining position.
@@ -213,43 +228,95 @@ module keyboard_retainer() {
     recess_rear_y = keyboard_recess_y + keyboard_recess_height;
     channel_start_y = recess_rear_y;
     nose_start_y = recess_rear_y - keyboard_retainer_tab_depth;
-    nose_anchor_length = 0.2;
     slider_top_width = keyboard_retainer_channel_width
         - 2 * keyboard_retainer_slider_clearance;
     slider_bottom_width = keyboard_retainer_channel_width
         + 2 * keyboard_retainer_channel_chamfer
         - 2 * keyboard_retainer_slider_clearance;
+    top_z = board_thickness + 0.01;
+    bottom_z = board_thickness - keyboard_retainer_channel_depth;
+    nose_bottom_z = top_z - 0.1;
+    slider_end_y = channel_start_y + keyboard_retainer_slider_length;
 
     if (keyboard_retainer_enabled)
         union() {
-            tapered_prism(
-                center_x,
-                channel_start_y,
-                keyboard_retainer_slider_length,
-                slider_bottom_width,
-                slider_top_width,
-                board_thickness - keyboard_retainer_channel_depth,
-                board_thickness + 0.01
+            // One closed mesh avoids CGAL unions between the nose and body.
+            polyhedron(
+                points = [
+                    [
+                        center_x - slider_top_width / 2,
+                        nose_start_y,
+                        nose_bottom_z
+                    ],
+                    [
+                        center_x + slider_top_width / 2,
+                        nose_start_y,
+                        nose_bottom_z
+                    ],
+                    [
+                        center_x + slider_top_width / 2,
+                        nose_start_y,
+                        top_z
+                    ],
+                    [
+                        center_x - slider_top_width / 2,
+                        nose_start_y,
+                        top_z
+                    ],
+                    [
+                        center_x - slider_bottom_width / 2,
+                        channel_start_y,
+                        bottom_z
+                    ],
+                    [
+                        center_x + slider_bottom_width / 2,
+                        channel_start_y,
+                        bottom_z
+                    ],
+                    [
+                        center_x + slider_top_width / 2,
+                        channel_start_y,
+                        top_z
+                    ],
+                    [
+                        center_x - slider_top_width / 2,
+                        channel_start_y,
+                        top_z
+                    ],
+                    [
+                        center_x - slider_bottom_width / 2,
+                        slider_end_y,
+                        bottom_z
+                    ],
+                    [
+                        center_x + slider_bottom_width / 2,
+                        slider_end_y,
+                        bottom_z
+                    ],
+                    [
+                        center_x + slider_top_width / 2,
+                        slider_end_y,
+                        top_z
+                    ],
+                    [
+                        center_x - slider_top_width / 2,
+                        slider_end_y,
+                        top_z
+                    ]
+                ],
+                faces = [
+                    [0, 1, 2, 3],
+                    [0, 4, 5, 1],
+                    [1, 5, 6, 2],
+                    [2, 6, 7, 3],
+                    [3, 7, 4, 0],
+                    [4, 8, 9, 5],
+                    [5, 9, 10, 6],
+                    [6, 10, 11, 7],
+                    [7, 11, 8, 4],
+                    [8, 11, 10, 9]
+                ]
             );
-            // The leading wedge continues the dovetail while tapering the
-            // keyboard-facing edge through the two-millimeter nose.
-            hull() {
-                translate([
-                    center_x - slider_bottom_width / 2,
-                    nose_start_y,
-                    board_thickness - keyboard_retainer_channel_depth
-                ])
-                    cube([slider_bottom_width, nose_anchor_length, 0.1]);
-                tapered_prism(
-                    center_x,
-                    recess_rear_y - nose_anchor_length,
-                    nose_anchor_length,
-                    slider_bottom_width,
-                    slider_top_width,
-                    board_thickness - keyboard_retainer_channel_depth,
-                    board_thickness + 0.01
-                );
-            }
             translate([
                 center_x,
                 channel_start_y + keyboard_retainer_slider_length - 3,
