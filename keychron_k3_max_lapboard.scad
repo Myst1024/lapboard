@@ -35,9 +35,9 @@ keyboard_recess_width = 308;
 // Height of the keyboard + some clearance
 keyboard_recess_height = 118;
 // Depth of the front of the keyboard chassis
-keyboard_front_recess_depth = 8;
+keyboard_front_recess_depth = 10;
 // Depth of the rear of the keyboard chassis
-keyboard_rear_recess_depth = 15;
+keyboard_rear_recess_depth = 14;
 keyboard_recess_corner_radius = 5;
 // Space between left side of keyboard recess and board edge
 keyboard_left_margin = 10;
@@ -68,9 +68,11 @@ keyboard_retainer_knob_height = 1;
 
 mousepad_width = 241;
 mousepad_height = 201;
-mousepad_corner_radius = 6;
+mousepad_corner_radius = 8;
 // If you don't want a mousepad section just set this to 0
-mousepad_recess_depth = 1;
+mousepad_recess_depth = 3.2; // [0:0.1:20]
+// 45-degree clip-in lip on the left and right sides
+mousepad_recess_lip_width = 1.5; // [0:0.1:3]
 mousepad_right_margin = 10;
 mousepad_top_margin = 15;
 
@@ -80,7 +82,7 @@ mousepad_top_margin = 15;
 threaded_rod_hole_diameter = 7.15;
 // Measured flat to flat.
 hex_nut_recess_width = 11.5;
-hex_nut_recess_depth = 7;
+hex_nut_recess_depth = 10;
 // Needs to be just wide enough to fit the socket for the hex nut
 socket_access_diameter = 17.0;
 socket_access_depth = 12;
@@ -168,6 +170,53 @@ module mousepad_recess() {
                 mousepad_height,
                 mousepad_corner_radius
             );
+}
+
+module mousepad_recess_lips() {
+    lip_width = min(mousepad_recess_lip_width, 3, mousepad_recess_depth);
+    side_start_y = mousepad_recess_y + mousepad_corner_radius;
+    side_end_y = mousepad_recess_y + mousepad_height - mousepad_corner_radius;
+    side_length = side_end_y - side_start_y;
+    lip_bottom_z = board_thickness - lip_width;
+    lip_top_z = board_thickness;
+    lip_overlap = 0.01;
+    taper_length = min(lip_width / tan(10), side_length / 2);
+
+    if (lip_width > 0 && side_length > 0)
+        intersection() {
+            // The plan-view taper fades each lip into the rounded corner.
+            translate([0, 0, lip_bottom_z])
+                linear_extrude(height = lip_width)
+                    union() {
+                        polygon(points = [
+                            [mousepad_recess_x - lip_overlap, side_start_y],
+                            [mousepad_recess_x - lip_overlap, side_end_y],
+                            [mousepad_recess_x + lip_width, side_end_y - taper_length],
+                            [mousepad_recess_x + lip_width, side_start_y + taper_length]
+                        ]);
+                        polygon(points = [
+                            [mousepad_recess_x + mousepad_width + lip_overlap, side_start_y],
+                            [mousepad_recess_x + mousepad_width - lip_width, side_start_y + taper_length],
+                            [mousepad_recess_x + mousepad_width - lip_width, side_end_y - taper_length],
+                            [mousepad_recess_x + mousepad_width + lip_overlap, side_end_y]
+                        ]);
+                    }
+            translate([0, side_end_y, 0])
+                rotate([90, 0, 0])
+                    linear_extrude(height = side_length)
+                        union() {
+                            polygon(points = [
+                                [mousepad_recess_x - lip_overlap, lip_bottom_z],
+                                [mousepad_recess_x - lip_overlap, lip_top_z],
+                                [mousepad_recess_x + lip_width, lip_top_z]
+                            ]);
+                            polygon(points = [
+                                [mousepad_recess_x + mousepad_width + lip_overlap, lip_bottom_z],
+                                [mousepad_recess_x + mousepad_width - lip_width, lip_top_z],
+                                [mousepad_recess_x + mousepad_width + lip_overlap, lip_top_z]
+                            ]);
+                        }
+        }
 }
 
 module tapered_prism(
@@ -408,14 +457,17 @@ module right_round_cap() {
 module lapboard() {
     // Large flat rectangle with an angled keyboard recess. The space to the
     // right of the recess is intentionally uninterrupted for a mouse pad.
-    difference() {
-        board_shape();
-        keyboard_recess();
-        mousepad_recess();
-        keyboard_retainer_channel();
-        threaded_rod_channels();
-        left_nut_recesses();
-        right_socket_counterbores();
+    union() {
+        difference() {
+            board_shape();
+            keyboard_recess();
+            mousepad_recess();
+            keyboard_retainer_channel();
+            threaded_rod_channels();
+            left_nut_recesses();
+            right_socket_counterbores();
+        }
+        mousepad_recess_lips();
     }
 }
 
